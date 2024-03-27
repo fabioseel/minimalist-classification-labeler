@@ -9,6 +9,7 @@ class SimpleGUI:
         self.root.title("Minimalist Classification Labeler")
 
         # Create buttons
+        self.home_dir = "~"
         self.button1 = tk.Button(root, text="Open Directory", command=self.open_directory)
         self.button1.pack()
 
@@ -16,8 +17,13 @@ class SimpleGUI:
         self.label = tk.Label(root)
         self.label.pack(expand=True, fill="both")
 
-        self.button2 = tk.Button(root, text="Button 2", command=self.button2_clicked)
-        self.button2.pack()
+        
+        self.button_frame = tk.Frame(root)
+        self.button_frame.pack(fill="both")
+
+        self.classes = ['center_surround', 'color', 'gabor', 'mult_freq', 'noise', 'simple_edge', 'unclassifiable']
+        self.create_classifier_buttons()
+
         self.root.minsize(400, 400)
 
         # Bind window resize event
@@ -25,13 +31,40 @@ class SimpleGUI:
 
     def open_directory(self):
         # Open a file dialog to choose an image file
-        dir_path = filedialog.askdirectory(initialdir="~")
+        self.home_dir = filedialog.askdirectory(initialdir=self.home_dir)
 
-        if dir_path:
-            img_path = os.listdir(dir_path)[0]
+        if self.home_dir:
+            self.display_next_image()
+
+    @staticmethod
+    def get_next_image(path):
+        for file in os.listdir(path):
+            if file.endswith(".png"):
+                return file
+        return ""
+    
+    def display_next_image(self):
+        img_name = self.get_next_image(self.home_dir)
+        self.update_image(img_name)
+
+    def update_image(self, img_name):
+            self.img_name = img_name
             # Load the chosen image
-            self.image = Image.open(os.path.join(dir_path, img_path))
+            self.image = Image.open(os.path.join(self.home_dir, self.img_name))
             self.display_image()
+
+    def create_classifier_buttons(self):
+        button_dict = {} 
+        for _class in self.classes: 
+            
+            # pass each button's text to a function 
+            def action(x = _class):  
+                return self.classify_button_clicked(x) 
+                
+            # create the buttons  
+            button_dict[_class] = tk.Button(self.button_frame, text = _class, 
+                                    command = action, height=10) 
+            button_dict[_class].pack(side='left', fill="both",expand=True) 
 
     def display_image(self):
         # Resize image to fit within window
@@ -56,8 +89,17 @@ class SimpleGUI:
         # Resize and display the image when the window is resized
         self.display_image()
 
-    def button2_clicked(self):
-        print("Button 2 clicked")
+    def classify_button_clicked(self, _class):
+        if self.image:
+            class_dir = os.path.join(self.home_dir, _class)
+            if not os.path.exists(class_dir):
+                os.mkdir(class_dir)
+            
+            src_path = os.path.join(self.home_dir, self.img_name)
+            dest_path = os.path.join(class_dir, self.img_name)
+            os.rename(src_path, dest_path)
+            self.display_next_image()
+
 
 if __name__ == "__main__":
     # Create the main window
