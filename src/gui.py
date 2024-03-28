@@ -157,7 +157,18 @@ class SimpleGUI:
                     self.autolabels = json.load(f)
 
     def autoskip(self):
-        pass
+        remove_imgs = []
+        for img in self.imgs:
+            dir_path, img_name = os.path.split(img)
+            if img_name in self.autolabels:
+                dir = os.path.split(dir_path)[1]
+                dir_label = self.classes.index(dir)
+                autolabel = np.argmax(self.autolabels[img_name])
+                if dir_label == autolabel:
+                    remove_imgs.append(img)
+        for img in remove_imgs:
+            self.imgs.remove(img)
+        self.load_image()
 
     @property
     def index(self):
