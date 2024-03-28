@@ -11,22 +11,27 @@ class ClassEditorWindow(tk.Toplevel):
 
     def __init__(self, parent, cur_classes):
         tk.Toplevel.__init__(self, parent)
+        self.classes=cur_classes
         self.text = tk.Text(self, height=len(cur_classes))
         for i, cl in enumerate(cur_classes):
             self.text.insert('{}.0'.format(i+1), cl+'\n')
         self.text.pack(expand=True, fill='both', padx=50, pady=5)
         
         self.ok_button = tk.Button(self, text="OK", command=self.on_ok)
-        self.ok_button.pack(expand=True, fill='x',)
+        self.ok_button.pack(expand=False, fill='x',)
+        self.protocol("WM_DELETE_WINDOW", self.on_abort)
 
     def on_ok(self, event=None):
-        self.text_content = tk.StringVar(value = self.text.get('1.0','end'))
+        self.classes = self.text.get('1.0','end').split("\n")
+        self.destroy()
+
+    def on_abort(self):
         self.destroy()
 
     def show(self):
         self.wm_deiconify()
         self.wait_window()
-        return self.text_content.get().split("\n")
+        return self.classes
 
 class SimpleGUI:
     def __init__(self, root):
@@ -96,8 +101,9 @@ class SimpleGUI:
     @classes.setter
     def classes(self, value):
         new_classes = [v for v in value if len(v)>0] # Validity check
-        self._classes = new_classes
-        self.create_classifier_buttons()
+        if not hasattr(self, "_classes") or self._classes != new_classes:
+            self._classes = new_classes
+            self.create_classifier_buttons()
 
     def edit_classes(self):
         self.classes = ClassEditorWindow(self.root, self.classes).show()
@@ -130,20 +136,21 @@ class SimpleGUI:
         pass
 
     def update_image(self, index):
-            self.index = index
-            # Load the chosen image
-            self.image = Image.open(os.path.join(self.home_dir, self.imgs[index]))
-            self.__display_image__()
-            self.display_autolabels()
+        self.index = index
+        # Load the chosen image
+        self.image = Image.open(os.path.join(self.home_dir, self.imgs[index]))
+        self.__display_image__()
+        self.display_autolabels()
     
     def display_autolabels(self):
-        if self.imgs[self.index] in self.autolabels.keys():
+        if hasattr(self, "imgs") and self.imgs[self.index] in self.autolabels.keys():
             label_values = self.autolabels[self.imgs[self.index]]
-            for button, value in zip(self.class_button_dict, label_values):
-                color = np.round(np.array(self.cmap(value))[:3]*255).astype(int)
-                color = '#%02x%02x%02x' % (color[0],color[1],color[2])
-                fg = "white" if value < 0.5 else "black"
-                self.class_button_dict[button].configure(background=color, foreground=fg)
+            if len(label_values) == len(self.class_button_dict):
+                for button, value in zip(self.class_button_dict, label_values):
+                    color = np.round(np.array(self.cmap(value))[:3]*255).astype(int)
+                    color = '#%02x%02x%02x' % (color[0],color[1],color[2])
+                    fg = "white" if value < 0.5 else "black"
+                    self.class_button_dict[button].configure(background=color, foreground=fg)
 
     def create_classifier_buttons(self):
         for button in self.class_button_dict:
@@ -159,7 +166,8 @@ class SimpleGUI:
                 # create the buttons  
                 self.class_button_dict[_class] = tk.Button(self.button_frame, text = _class, 
                                         command = action, height=10) 
-                self.class_button_dict[_class].pack(side='left', fill="both",expand=True) 
+                self.class_button_dict[_class].pack(side='left', fill="both",expand=True)
+        self.display_autolabels()
 
     def __display_image__(self):
         if hasattr(self, "image"):
