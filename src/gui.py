@@ -7,6 +7,26 @@ import json
 import matplotlib as mpl
 import numpy as np
 
+class ClassEditorWindow(tk.Toplevel):
+
+    def __init__(self, parent, cur_classes):
+        tk.Toplevel.__init__(self, parent)
+        self.text = tk.Text(self, height=len(cur_classes))
+        for i, cl in enumerate(cur_classes):
+            self.text.insert('{}.0'.format(i+1), cl+'\n')
+        self.text.pack(expand=True, fill='both', padx=50, pady=5)
+        
+        self.ok_button = tk.Button(self, text="OK", command=self.on_ok)
+        self.ok_button.pack(expand=True, fill='x',)
+
+    def on_ok(self, event=None):
+        self.text_content = tk.StringVar(value = self.text.get('1.0','end'))
+        self.destroy()
+
+    def show(self):
+        self.wm_deiconify()
+        self.wait_window()
+        return self.text_content.get().split("\n")
 
 class SimpleGUI:
     def __init__(self, root):
@@ -15,8 +35,12 @@ class SimpleGUI:
 
         # Create buttons
         self.home_dir = "~"
-        self.dir_button = tk.Button(root, text="Open Directory", command=self.open_directory)
-        self.dir_button.pack()
+        self.class_button_dict = OrderedDict()
+
+        self.menu_frame = tk.Frame(root)
+        self.menu_frame.pack(fill="both")
+        self.dir_button = tk.Button(self.menu_frame, text="Open Directory", command=self.open_directory)
+        self.dir_button.pack(side='left', fill="both",expand=True)
 
         # Create a label to display the image
         self.img_frame = tk.Frame(root)
@@ -35,9 +59,6 @@ class SimpleGUI:
         self.button_frame = tk.Frame(root)
         self.button_frame.pack(fill="both")
 
-        self.classes = ['center_surround', 'color', 'gabor', 'mult_freq', 'noise', 'simple_edge', 'unclassifiable']
-        self.create_classifier_buttons()
-
         self.cmap = mpl.colormaps['viridis']
 
         self.root.minsize(400, 400)
@@ -50,11 +71,44 @@ class SimpleGUI:
         # Open a file dialog to choose an image file
         self.home_dir = filedialog.askdirectory(initialdir=self.home_dir)
 
+        if not hasattr(self, "subdir_button"):
+            self.subdir_button = tk.Button(self.menu_frame, text="Load Subdirectories", command=self.load_subdirs)
+            self.subdir_button.pack(side='left', fill="both",expand=True)
+        if not hasattr(self, "edit_classes_button"):
+            self.edit_classes_button = tk.Button(self.menu_frame, text="Edit Classes", command=self.edit_classes)
+            self.edit_classes_button.pack(side='left', fill="both",expand=True)
+
+        self.classes = self.get_dirs(self.home_dir)
+
         if self.home_dir:
             label_path = os.path.join(self.home_dir, "autolabels.json")
             self.load_labels(label_path)
             self.imgs = self.get_all_images(self.home_dir)
-            self.update_image(self.index)
+            if(len(self.imgs) > 0):
+                self.update_image(self.index)
+            else:
+                self.__clear_image__()
+
+    @property
+    def classes(self):
+        return self._classes
+    
+    @classes.setter
+    def classes(self, value):
+        new_classes = [v for v in value if len(v)>0] # Validity check
+        self._classes = new_classes
+        self.create_classifier_buttons()
+
+    def edit_classes(self):
+        self.classes = ClassEditorWindow(self.root, self.classes).show()
+
+    def load_subdirs(self):
+        pass
+
+    @staticmethod        
+    def get_dirs(path):
+        return sorted([ f.name for f in os.scandir(path) if f.is_dir() ])
+
 
     @staticmethod
     def get_all_images(path):
@@ -68,6 +122,12 @@ class SimpleGUI:
         if os.path.exists(label_path):
             with open(label_path, "r") as f:
                 self.autolabels = json.load(f)
+            if not hasattr(self, "autoskip_button"):
+                self.autoskip_button = tk.Button(self.menu_frame, text="Skip correct", command=self.autoskip)
+                self.autoskip_button.pack(side='left', fill="both",expand=True)
+
+    def autoskip(self):
+        pass
 
     def update_image(self, index):
             self.index = index
@@ -79,24 +139,27 @@ class SimpleGUI:
     def display_autolabels(self):
         if self.imgs[self.index] in self.autolabels.keys():
             label_values = self.autolabels[self.imgs[self.index]]
-            for button, value in zip(self.button_dict, label_values):
+            for button, value in zip(self.class_button_dict, label_values):
                 color = np.round(np.array(self.cmap(value))[:3]*255).astype(int)
                 color = '#%02x%02x%02x' % (color[0],color[1],color[2])
                 fg = "white" if value < 0.5 else "black"
-                self.button_dict[button].configure(background=color, foreground=fg)
+                self.class_button_dict[button].configure(background=color, foreground=fg)
 
     def create_classifier_buttons(self):
-        self.button_dict = OrderedDict()
+        for button in self.class_button_dict:
+            self.class_button_dict[button].destroy()
+
+        self.class_button_dict = OrderedDict()
         for _class in self.classes: 
-            
-            # pass each button's text to a function 
-            def action(x = _class):  
-                return self.classify_button_clicked(x) 
-                
-            # create the buttons  
-            self.button_dict[_class] = tk.Button(self.button_frame, text = _class, 
-                                    command = action, height=10) 
-            self.button_dict[_class].pack(side='left', fill="both",expand=True) 
+            if _class not in self.class_button_dict:
+                # pass each button's text to a function 
+                def action(x = _class):  
+                    return self.classify_button_clicked(x) 
+                    
+                # create the buttons  
+                self.class_button_dict[_class] = tk.Button(self.button_frame, text = _class, 
+                                        command = action, height=10) 
+                self.class_button_dict[_class].pack(side='left', fill="both",expand=True) 
 
     def __display_image__(self):
         if hasattr(self, "image"):
@@ -117,6 +180,10 @@ class SimpleGUI:
             # Update the label with the new image
             self.label.configure(image=photo)
             self.label.image = photo
+
+    def __clear_image__(self):
+        self.label.configure(image='')
+        self.label.image = None
 
     def on_window_resize(self, event):
         # Resize and display the image when the window is resized
