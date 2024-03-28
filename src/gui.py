@@ -51,20 +51,20 @@ class SimpleGUI:
         self.img_frame = tk.Frame(root)
         self.img_frame.pack(expand=True, fill="both")
 
-        self.prev_button = tk.Button(self.img_frame, text="<", command=lambda:self.update_image(self.index-1))
+        self.prev_button = tk.Button(self.img_frame, text="<", command=lambda:self.inc_index(-1))
         self.prev_button.pack(side='left', fill="y")
 
         self.label = tk.Label(self.img_frame)
         self.label.pack(expand=True,side='left', fill="both")
 
-        self.next_button = tk.Button(self.img_frame, text=">", command=lambda:self.update_image(self.index+1))
+        self.next_button = tk.Button(self.img_frame, text=">", command=lambda:self.inc_index(1))
         self.next_button.pack(side='left', fill="y")
 
         
         self.button_frame = tk.Frame(root)
         self.button_frame.pack(fill="both")
 
-        self.cmap = mpl.colormaps['viridis']
+        self.cmap = mpl.colormaps['plasma']
 
         self.root.minsize(400, 400)
 
@@ -88,9 +88,9 @@ class SimpleGUI:
         if self.home_dir:
             label_path = os.path.join(self.home_dir, "autolabels.json")
             self.load_labels(label_path)
-            self.imgs = self.get_all_images(self.home_dir)
+            self.imgs = self.get_images_from_path(self.home_dir)
             if(len(self.imgs) > 0):
-                self.update_image(self.index)
+                self.index = 0
             else:
                 self.__clear_image__()
 
@@ -109,7 +109,30 @@ class SimpleGUI:
         self.classes = ClassEditorWindow(self.root, self.classes).show()
 
     def load_subdirs(self):
-        pass
+        for dir in self.get_dirs(self.home_dir):
+            full_path = os.path.join(self.home_dir, dir)
+            self.imgs.extend(self.get_images_from_path(full_path))
+
+            label_path = os.path.join(full_path, "autolabels.json")
+            self.load_labels(label_path, join=True)
+
+        self.load_image()
+        self.subdir_button.destroy()
+
+    @property
+    def autolabels(self):
+        if not hasattr(self, "_autolabels"):
+            self._autolabels = {}
+        return self._autolabels
+    
+    @autolabels.setter
+    def autolabels(self, value):
+        self._autolabels = value
+        if len(value) > 0 and not hasattr(self, "autoskip_button"):
+                self.autoskip_button = tk.Button(self.menu_frame, text="Skip correct", command=self.autoskip)
+                self.autoskip_button.pack(side='left', fill="both",expand=True)
+        elif len(value) == 0 and hasattr(self, "autoskip_button"):
+            self.autoskip_button.destroy()
 
     @staticmethod        
     def get_dirs(path):
@@ -117,34 +140,62 @@ class SimpleGUI:
 
 
     @staticmethod
-    def get_all_images(path):
+    def get_images_from_path(path):
         imgs = []
         for file in os.listdir(path):
             if file.endswith(".png"):
-                imgs.append(file)
+                imgs.append(os.path.join(path, file))
         return imgs
     
-    def load_labels(self, label_path):
+    def load_labels(self, label_path, join = False):
         if os.path.exists(label_path):
             with open(label_path, "r") as f:
-                self.autolabels = json.load(f)
-            if not hasattr(self, "autoskip_button"):
-                self.autoskip_button = tk.Button(self.menu_frame, text="Skip correct", command=self.autoskip)
-                self.autoskip_button.pack(side='left', fill="both",expand=True)
+                new_labels = json.load(f)
+                if join:
+                    self.autolabels = self.autolabels | new_labels # Merge dictionaries
+                else:
+                    self.autolabels = json.load(f)
 
     def autoskip(self):
         pass
 
-    def update_image(self, index):
-        self.index = index
-        # Load the chosen image
-        self.image = Image.open(os.path.join(self.home_dir, self.imgs[index]))
-        self.__display_image__()
-        self.display_autolabels()
+    @property
+    def index(self):
+        if not hasattr(self, "_index"):
+            self._index=0
+        return self._index
     
+    @index.setter
+    def index(self, value):
+        self._index = value
+        self.load_image()
+
+    def load_image(self):
+        if self.img_path != '':
+            self.image = Image.open(self.img_path)
+            self.__display_image__()
+            self.display_autolabels()
+
+    def inc_index(self, diff):
+        self.index += diff
+    
+    @property
+    def img_path(self):
+        if hasattr(self, "imgs"):
+            return self.imgs[self.index]
+        else:
+            return ""
+    
+    @property
+    def img_name(self):
+        if hasattr(self, "imgs"):
+            return os.path.split(self.img_path)[1]
+        else:
+            return ""
+
     def display_autolabels(self):
-        if hasattr(self, "imgs") and self.imgs[self.index] in self.autolabels.keys():
-            label_values = self.autolabels[self.imgs[self.index]]
+        if self.img_name in self.autolabels.keys():
+            label_values = self.autolabels[self.img_name]
             if len(label_values) == len(self.class_button_dict):
                 for button, value in zip(self.class_button_dict, label_values):
                     color = np.round(np.array(self.cmap(value))[:3]*255).astype(int)
@@ -203,11 +254,10 @@ class SimpleGUI:
             if not os.path.exists(class_dir):
                 os.mkdir(class_dir)
             
-            src_path = os.path.join(self.home_dir, self.imgs[self.index])
-            dest_path = os.path.join(class_dir, self.imgs[self.index])
-            os.rename(src_path, dest_path)
+            dest_path = os.path.join(class_dir, self.img_name)
+            os.rename(self.img_path, dest_path)
             self.imgs.pop(self.index)
-            self.update_image(self.index)
+            self.load_image()
 
 
 if __name__ == "__main__":
