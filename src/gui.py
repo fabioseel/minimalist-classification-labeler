@@ -245,7 +245,7 @@ class SimpleGUI:
             self.display_autolabels()
         else:
             self.__clear_image__()
-        self.remain_label.config(text = "img: "+str(self.index+1)+"/"+str(self.num_imgs))
+        self.remain_label.config(text = "img: "+str(min(self.index+1, self.num_imgs))+"/"+str(self.num_imgs))
 
     def inc_index(self, diff):
         self.index += diff
