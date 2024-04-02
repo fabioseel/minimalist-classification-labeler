@@ -199,7 +199,7 @@ class SimpleGUI:
             remove_imgs = []
             for img in self.imgs:
                 dir_path, img_name = os.path.split(img)
-                if img_name in self.autolabels:
+                if img_name in self.autolabels and dir_path != self.home_dir:
                     dir = os.path.split(dir_path)[1]
                     dir_label = self.classes.index(dir)
                     autolabel = np.argmax(self.autolabels[img_name])
