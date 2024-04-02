@@ -230,7 +230,10 @@ class SimpleGUI:
 
     def load_image(self):
         if self.img_path != '':
-            self.image = Image.open(self.img_path)
+            image = np.asarray(Image.open(self.img_path))
+            image = (image-image.min())/(image.max()-image.min())
+            image = np.round(255*image).astype(np.uint8)
+            self.image = Image.fromarray(image)
             self.__display_image__()
             self.display_autolabels()
         else:
@@ -303,10 +306,10 @@ class SimpleGUI:
                 width=int(round(height/factor,0))
             else:
                 height=int(round(width*factor,0))
-            self.image = self.image.resize((width, height), Image.NEAREST)
+            image = self.image.resize((width, height), Image.NEAREST)
 
             # Convert image to PhotoImage
-            photo = ImageTk.PhotoImage(self.image)
+            photo = ImageTk.PhotoImage(image)
 
             # Update the label with the new image
             self.label.configure(image=photo)
