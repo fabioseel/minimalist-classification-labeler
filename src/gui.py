@@ -6,6 +6,12 @@ import os
 import json
 import matplotlib as mpl
 import numpy as np
+from enum import Enum
+
+class COLORS(Enum):
+    blue = "#0098cd"
+    lightblue = "#cceaf5"
+    pink ="#e01095"
 
 class ClassEditorWindow(tk.Toplevel):
 
@@ -69,7 +75,8 @@ class SimpleGUI:
         self.button_frame = tk.Frame(root)
         self.button_frame.pack(fill="both")
 
-        self.cmap = mpl.colormaps['plasma']
+        self.class_label.configure(bg=COLORS.lightblue.value)
+        self.cmap = mpl.colors.LinearSegmentedColormap.from_list("hertie", [COLORS.blue.value, COLORS.lightblue.value, COLORS.pink.value])
 
         self.root.minsize(400, 400)
 
@@ -275,7 +282,7 @@ class SimpleGUI:
                 for button, value in zip(self.class_button_dict, label_values):
                     color = np.round(np.array(self.cmap(value))[:3]*255).astype(int)
                     color = '#%02x%02x%02x' % (color[0],color[1],color[2])
-                    fg = "white" if value < 0.5 else "black"
+                    fg = "white"# if value < 0.5 else "black"
                     self.class_button_dict[button].configure(background=color, foreground=fg)
 
     def create_classifier_buttons(self):
