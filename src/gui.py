@@ -218,16 +218,14 @@ class SimpleGUI:
 
     @property
     def index(self):
-        if not hasattr(self, "_index"):
+        if not hasattr(self, "_index") or self.num_imgs <=0 :
             self._index=0
+        else:
+            self._index = self._index % self.num_imgs
         return self._index
     
     @index.setter
     def index(self, value):
-        if (self.num_imgs > 0):
-            value = value % self.num_imgs
-        else:
-            value = 0
         self._index = value
         self.load_image()
 
@@ -335,7 +333,7 @@ class SimpleGUI:
         self.__display_image__()
 
     def classify_button_clicked(self, _class):
-        if self.image:
+        if hasattr(self, "image"):
             class_dir = os.path.join(self.home_dir, _class)
             if not os.path.exists(class_dir):
                 os.mkdir(class_dir)
